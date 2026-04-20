@@ -108,7 +108,7 @@ const defaultBlogs: Blog[] = [
 
 export default function BlogsPage() {
   const [blogs, setBlogs] = useState<Blog[]>([])
-  const [displayCount, setDisplayCount] = useState(6)
+  const [displayCount, setDisplayCount] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -122,6 +122,8 @@ export default function BlogsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [blogToDelete, setBlogToDelete] = useState<Blog | null>(null)
   const [successToast, setSuccessToast] = useState<string | null>(null)
+  const [savingStatus, setSavingStatus] = useState<'saving' | 'success' | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
   const newFileInputRef = useRef<HTMLInputElement>(null)
   const editFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -140,8 +142,11 @@ export default function BlogsPage() {
           id: blog._id || blog.id
         }))
         setBlogs(blogsData)
+        // Set displayCount to total blogs if not set yet
+        setDisplayCount(prev => prev === null ? blogsData.length : prev)
       } else {
         setBlogs([])
+        setDisplayCount(prev => prev === null ? 0 : prev)
       }
     } catch (error) {
       console.error('Error fetching blogs:', error)
@@ -210,28 +215,34 @@ export default function BlogsPage() {
 
   const handleAddBlog = async () => {
     if (!newBlog.title) return
+    setAddError(null)
     setIsSaving(true)
+    setSavingStatus('saving')
     try {
       const response = await api.post('/blogs', {
         ...newBlog,
         isVisible: true,
       })
       if (response.data.success) {
-        await fetchBlogs() // Refresh from database
-        setNewBlog(initialBlogForm)
-        setNewImagePreview('')
-        setAddSuccess(true)
-        showSuccessToast('Blog added successfully!')
+        setSavingStatus('success')
+        await fetchBlogs()
         setTimeout(() => {
-          setAddSuccess(false)
+          setSavingStatus(null)
+          setIsSaving(false)
           setShowAddForm(false)
+          setNewBlog(initialBlogForm)
+          setNewImagePreview('')
+          showSuccessToast('Blog added successfully!')
         }, 1500)
+        return
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding blog:', error)
-    } finally {
-      setIsSaving(false)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || 'Failed to add blog. Please check all required fields.'
+      setAddError(msg)
     }
+    setSavingStatus(null)
+    setIsSaving(false)
   }
 
   const startEditing = (blog: Blog) => {
@@ -366,7 +377,7 @@ export default function BlogsPage() {
     }
   }
 
-  const visibleBlogs = blogs.filter(b => b.isVisible !== false).slice(0, displayCount)
+  const visibleBlogs = blogs.filter(b => b.isVisible !== false).slice(0, displayCount ?? blogs.length)
 
   if (isLoading) {
     return (
@@ -393,10 +404,10 @@ export default function BlogsPage() {
               <label className="block text-xs text-gray-400 mb-2">Number of blogs displayed</label>
               <input
                 type="number"
-                value={displayCount}
-                onChange={(e) => saveDisplayCount(parseInt(e.target.value) || 6)}
+                value={displayCount ?? blogs.length}
+                onChange={(e) => saveDisplayCount(parseInt(e.target.value) || blogs.length)}
                 min={1}
-                max={blogs.length}
+                max={blogs.length || 1}
                 className="w-full bg-[#252525] border border-white/[0.06] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/30"
               />
             </div>
@@ -627,17 +638,49 @@ export default function BlogsPage() {
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => { setShowAddForm(false); setNewBlog(initialBlogForm); setNewImagePreview(''); setNewTagName('') }}
+            onClick={() => { if (!savingStatus) { setShowAddForm(false); setNewBlog(initialBlogForm); setNewImagePreview(''); setNewTagName('') } }}
           />
 
           {/* Modal */}
           <div className="relative bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto shadow-2xl">
+            
+            {/* Saving Status Overlay */}
+            {savingStatus && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-2xl">
+                <div className="bg-[#242424] border border-white/10 rounded-2xl p-8 text-center shadow-2xl">
+                  {savingStatus === 'saving' ? (
+                    <>
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/10 flex items-center justify-center">
+                        <svg className="w-8 h-8 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-white mb-2">Saving Blog...</h3>
+                      <p className="text-sm text-gray-400">Please wait while your blog is being saved</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-white mb-2">Blog Saved!</h3>
+                      <p className="text-sm text-gray-400">Your blog has been added successfully</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Header */}
             <div className="sticky top-0 bg-[#1a1a1a] border-b border-white/[0.06] px-8 py-5 flex items-center justify-between z-10">
               <h2 className="text-xl font-semibold text-white">Add New Blog</h2>
               <button
-                onClick={() => { setShowAddForm(false); setNewBlog(initialBlogForm); setNewImagePreview(''); setNewTagName('') }}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                onClick={() => { if (!savingStatus) { setShowAddForm(false); setNewBlog(initialBlogForm); setNewImagePreview(''); setNewTagName('') } }}
+                disabled={!!savingStatus}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -775,10 +818,10 @@ export default function BlogsPage() {
                 </div>
               </div>
 
-              {addSuccess && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span className="text-sm text-emerald-400">Blog added successfully!</span>
+              {addError && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span className="text-sm text-red-400">{addError}</span>
                 </div>
               )}
             </div>
@@ -786,14 +829,15 @@ export default function BlogsPage() {
             {/* Footer */}
             <div className="sticky bottom-0 bg-[#1a1a1a] border-t border-white/[0.06] px-8 py-5 flex items-center justify-end gap-4">
               <button
-                onClick={() => { setShowAddForm(false); setNewBlog(initialBlogForm); setNewImagePreview(''); setNewTagName('') }}
-                className="px-8 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 text-base font-medium border border-white/[0.06] transition-colors"
+                onClick={() => { if (!savingStatus) { setShowAddForm(false); setNewBlog(initialBlogForm); setNewImagePreview(''); setNewTagName('') } }}
+                disabled={!!savingStatus}
+                className="px-8 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 text-base font-medium border border-white/[0.06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddBlog}
-                disabled={!newBlog.title || isSaving || isUploading}
+                disabled={!newBlog.title || isSaving || isUploading || !!savingStatus}
                 className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-white text-base font-medium transition-colors shadow-lg shadow-emerald-500/20"
               >
                 {isSaving ? (

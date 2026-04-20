@@ -27,9 +27,8 @@ const upload = multer({
   },
 });
 
-// All upload routes require authentication
-router.post('/', auth, upload.single('file'), uploadFile);
-router.post('/multiple', auth, upload.array('files', 10), uploadMultiple);
-router.delete('/', auth, deleteFile);
+router.post('/', upload.single('file'), uploadFile);
+router.post('/multiple', upload.array('files', 10), uploadMultiple);
+router.delete('/', deleteFile);
 
 module.exports = router;

@@ -168,28 +168,43 @@ export default function BlogsPage() {
     }
   }
 
-  const handleNewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64 = reader.result as string
-        setNewImagePreview(base64)
-        setNewBlog({ ...newBlog, image: base64 })
-      }
-      reader.readAsDataURL(file)
+  const [isUploading, setIsUploading] = useState(false)
+
+  const uploadToS3 = async (file: File): Promise<string | null> => {
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await api.post('/upload?folder=blogs', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data.url
+    } catch (error) {
+      console.error('S3 upload error:', error)
+      return null
+    } finally {
+      setIsUploading(false)
     }
   }
 
-  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNewImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = await uploadToS3(file)
+      if (url) {
+        setNewImagePreview(url)
+        setNewBlog({ ...newBlog, image: url })
+      }
+    }
+  }
+
+  const handleEditImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file && editData) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64 = reader.result as string
-        setEditData({ ...editData, image: base64 })
+      const url = await uploadToS3(file)
+      if (url) {
+        setEditData({ ...editData, image: url })
       }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -466,7 +481,7 @@ export default function BlogsPage() {
                           <label className="block text-[10px] text-gray-500 mb-1">Image</label>
                           <div className="flex items-center gap-2">
                             <div className="flex-1 flex items-center gap-2 bg-[#252525] border border-white/[0.06] rounded-lg px-3 py-2">
-                              <span className="text-sm text-white">{editData.image ? '1 image attached' : 'No image'}</span>
+                              <span className="text-sm text-white">{isUploading ? 'Uploading...' : editData.image ? '1 image attached' : 'No image'}</span>
                               {editData.image && <span className="text-emerald-400">✓</span>}
                             </div>
                             <button onClick={() => setEditData({ ...editData, image: '' })} className="w-9 h-9 rounded-lg bg-[#252525] border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-red-400">
@@ -665,7 +680,7 @@ export default function BlogsPage() {
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-sm text-gray-400">{newImagePreview ? '1 image attached ✓' : 'No image selected'}</span>
+                    <span className="text-sm text-gray-400">{isUploading ? 'Uploading...' : newImagePreview ? '1 image attached ✓' : 'No image selected'}</span>
                   </div>
                   <input ref={newFileInputRef} type="file" accept="image/*" onChange={handleNewImageChange} className="hidden" />
                   <button onClick={() => newFileInputRef.current?.click()} className="px-6 py-4 rounded-xl bg-[#252525] border border-white/[0.06] text-gray-400 hover:text-white hover:border-emerald-500/30 transition-colors font-medium">
@@ -778,7 +793,7 @@ export default function BlogsPage() {
               </button>
               <button
                 onClick={handleAddBlog}
-                disabled={!newBlog.title || isSaving}
+                disabled={!newBlog.title || isSaving || isUploading}
                 className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-white text-base font-medium transition-colors shadow-lg shadow-emerald-500/20"
               >
                 {isSaving ? (

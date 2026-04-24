@@ -75,7 +75,7 @@ const createBlog = async (req, res) => {
         const blogData = req.body;
 
         // Validate required fields
-        const requiredFields = ['title', 'description', 'image', 'authorName', 'authorCompany', 'readingTime', 'mainTag'];
+        const requiredFields = ['title', 'description', 'image', 'readingTime', 'mainTag'];
         for (const field of requiredFields) {
             if (!blogData[field]) {
                 return res.status(400).json({

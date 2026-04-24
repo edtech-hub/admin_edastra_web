@@ -19,28 +19,19 @@ const blogSchema = new mongoose.Schema({
         trim: true,
         maxlength: [200, 'Title cannot be more than 200 characters']
     },
+    subtitle: {
+        type: String,
+        trim: true,
+        maxlength: [300, 'Subtitle cannot be more than 300 characters']
+    },
     description: {
         type: String,
-        required: [true, 'Description is required'],
-        trim: true,
-        maxlength: [1500, 'Description cannot be more than 1500 characters']
+        required: [true, 'Description is required']
     },
     image: {
         type: String,
         required: [true, 'Image is required'],
         trim: true
-    },
-    authorName: {
-        type: String,
-        required: [true, 'Author name is required'],
-        trim: true,
-        maxlength: [100, 'Author name cannot be more than 100 characters']
-    },
-    authorCompany: {
-        type: String,
-        required: [true, 'Author company is required'],
-        trim: true,
-        maxlength: [100, 'Author company cannot be more than 100 characters']
     },
     readingTime: {
         type: String,

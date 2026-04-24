@@ -202,9 +202,7 @@ export default function BlogsPage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const response = await api.post('/upload?folder=blogs', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const response = await api.post('/upload?folder=blogs', formData)
       return response.data.url
     } catch (error) {
       console.error('S3 upload error:', error)

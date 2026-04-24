@@ -56,17 +56,13 @@ export default function FileUpload({
         const formData = new FormData()
         Array.from(files).forEach((file) => formData.append('files', file))
 
-        const res = await api.post(`/upload/multiple?folder=${folder}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        const res = await api.post(`/upload/multiple?folder=${folder}`, formData)
         onUpload(res.data.files)
       } else {
         const formData = new FormData()
         formData.append('file', files[0])
 
-        const res = await api.post(`/upload?folder=${folder}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        const res = await api.post(`/upload?folder=${folder}`, formData)
 
         // Show preview for images
         if (files[0].type.startsWith('image/')) {

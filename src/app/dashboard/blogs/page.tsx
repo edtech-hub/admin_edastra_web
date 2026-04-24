@@ -1,19 +1,22 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import TopBar from '@/components/layout/TopBar'
 import api from '@/lib/api'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
+
+// Dynamically import ReactQuill to avoid SSR issues
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
 
 interface Blog {
   _id?: string
   id: string
   title: string
+  subtitle?: string
   description: string
   image: string
-  authorName: string
-  authorCompany: string
   readingTime: string
   mainTag: string
   additionalTags: { name: string; isVisible: boolean }[]
@@ -22,23 +25,47 @@ interface Blog {
 
 const initialBlogForm = {
   title: '',
+  subtitle: '',
   description: '',
   image: '',
-  authorName: '',
-  authorCompany: '',
   readingTime: '',
   mainTag: '',
   additionalTags: [] as { name: string; isVisible: boolean }[],
 }
 
+// Helper function to count words in HTML content
+const countWords = (htmlContent: string): number => {
+  const text = htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!text) return 0
+  return text.split(' ').filter(word => word.length > 0).length
+}
+
+// Quill editor modules configuration
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    [{ 'indent': '-1' }, { 'indent': '+1' }],
+    ['link'],
+    ['clean']
+  ],
+}
+
+const quillFormats = [
+  'header',
+  'bold', 'italic', 'underline', 'strike',
+  'list', 'bullet', 'indent',
+  'link'
+]
+
 const defaultBlogs: Blog[] = [
   {
     id: '1',
     title: 'Next.js 14 Server Components: The Ultimate Performance Guide',
+    subtitle: 'Maximize your web performance',
     description: 'Learn how React Server Components can reduce your JavaScript bundle by 70% and improve Core Web Vitals significantly.',
     image: '',
-    authorName: 'Ed-Astra Team',
-    authorCompany: 'Ed-Astra',
     readingTime: '12 min',
     mainTag: 'FRONTEND',
     additionalTags: [{ name: 'Next.js', isVisible: true }, { name: 'React', isVisible: true }],
@@ -47,10 +74,9 @@ const defaultBlogs: Blog[] = [
   {
     id: '2',
     title: 'Building AI-Powered SaaS Applications in 2026',
+    subtitle: 'The future of intelligent software',
     description: 'From GPT-4 integration to custom ML pipelines — how to architect scalable AI-first products.',
     image: '',
-    authorName: 'Ed-Astra Team',
-    authorCompany: 'Ed-Astra',
     readingTime: '18 min',
     mainTag: 'AI & ML',
     additionalTags: [{ name: 'AI', isVisible: true }, { name: 'SaaS', isVisible: true }],
@@ -59,10 +85,9 @@ const defaultBlogs: Blog[] = [
   {
     id: '3',
     title: 'Flutter vs React Native: Which to Choose in 2026?',
+    subtitle: 'A comprehensive comparison',
     description: 'An in-depth comparison of performance, DX, and ecosystem maturity for cross-platform development.',
     image: '',
-    authorName: 'Ed-Astra Team',
-    authorCompany: 'Ed-Astra',
     readingTime: '15 min',
     mainTag: 'MOBILE',
     additionalTags: [{ name: 'Flutter', isVisible: true }, { name: 'React Native', isVisible: true }],
@@ -71,10 +96,9 @@ const defaultBlogs: Blog[] = [
   {
     id: '4',
     title: 'AWS Serverless: How We Cut Cloud Costs by 60%',
+    subtitle: 'Real-world cost optimization',
     description: 'A case study on migrating to serverless with Lambda, API Gateway, and DynamoDB.',
     image: '',
-    authorName: 'Ed-Astra Team',
-    authorCompany: 'Ed-Astra',
     readingTime: '14 min',
     mainTag: 'CLOUD',
     additionalTags: [{ name: 'AWS', isVisible: true }, { name: 'Serverless', isVisible: true }],
@@ -83,10 +107,9 @@ const defaultBlogs: Blog[] = [
   {
     id: '5',
     title: 'UX Principles That Increased Conversions by 340%',
+    subtitle: 'Design for impact',
     description: 'A breakdown of the UX redesign process that transformed an e-commerce platform\'s performance.',
     image: '',
-    authorName: 'Ed-Astra Team',
-    authorCompany: 'Ed-Astra',
     readingTime: '13 min',
     mainTag: 'DESIGN',
     additionalTags: [{ name: 'UX', isVisible: true }, { name: 'Conversion', isVisible: true }],
@@ -95,10 +118,9 @@ const defaultBlogs: Blog[] = [
   {
     id: '6',
     title: 'Microservices on Kubernetes: Production Guide',
+    subtitle: 'Enterprise-grade deployment',
     description: 'Everything about deploying microservices with Istio, Prometheus, and zero-downtime strategies.',
     image: '',
-    authorName: 'Ed-Astra Team',
-    authorCompany: 'Ed-Astra',
     readingTime: '22 min',
     mainTag: 'DEVOPS',
     additionalTags: [{ name: 'Kubernetes', isVisible: true }, { name: 'Microservices', isVisible: true }],
@@ -479,13 +501,30 @@ export default function BlogsPage() {
                         </div>
 
                         <div>
-                          <label className="block text-[10px] text-gray-500 mb-1">Description</label>
-                          <textarea
-                            value={editData.description}
-                            onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                            rows={6}
-                            className="w-full bg-[#252525] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/30 resize-none"
+                          <label className="block text-[10px] text-gray-500 mb-1">Subtitle</label>
+                          <input
+                            type="text"
+                            value={editData.subtitle || ''}
+                            onChange={(e) => setEditData({ ...editData, subtitle: e.target.value })}
+                            className="w-full bg-[#252525] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/30"
                           />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-1">Description (up to 1500 words)</label>
+                          <div className="quill-dark-theme">
+                            <ReactQuill
+                              theme="snow"
+                              value={editData.description}
+                              onChange={(content) => setEditData({ ...editData, description: content })}
+                              modules={quillModules}
+                              formats={quillFormats}
+                              className="bg-[#252525] rounded-lg"
+                            />
+                          </div>
+                          <div className="text-right text-xs text-gray-500 mt-2">
+                            {countWords(editData.description)}/1500 words
+                          </div>
                         </div>
 
                         <div>
@@ -503,16 +542,6 @@ export default function BlogsPage() {
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                             </button>
                           </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] text-gray-500 mb-1">Name of the blogger</label>
-                          <input
-                            type="text"
-                            value={editData.authorName}
-                            onChange={(e) => setEditData({ ...editData, authorName: e.target.value })}
-                            className="w-full bg-[#252525] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/30"
-                          />
                         </div>
 
                         <div>
@@ -643,7 +672,7 @@ export default function BlogsPage() {
 
           {/* Modal */}
           <div className="relative bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto shadow-2xl">
-            
+
             {/* Saving Status Overlay */}
             {savingStatus && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-2xl">
@@ -702,17 +731,31 @@ export default function BlogsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description * (up to 1500 characters)</label>
-                <textarea
-                  value={newBlog.description}
-                  onChange={(e) => setNewBlog({ ...newBlog, description: e.target.value })}
-                  rows={12}
-                  maxLength={1500}
-                  className="w-full bg-[#252525] border border-white/[0.06] rounded-xl px-5 py-4 text-base text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 resize-none leading-relaxed"
-                  placeholder="Enter blog description... Write a detailed description for your blog post."
+                <label className="block text-sm font-medium text-gray-300 mb-2">Subtitle</label>
+                <input
+                  type="text"
+                  value={newBlog.subtitle}
+                  onChange={(e) => setNewBlog({ ...newBlog, subtitle: e.target.value })}
+                  className="w-full bg-[#252525] border border-white/[0.06] rounded-xl px-5 py-4 text-base text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="Enter blog subtitle"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Description * (up to 1500 words)</label>
+                <div className="quill-dark-theme">
+                  <ReactQuill
+                    theme="snow"
+                    value={newBlog.description}
+                    onChange={(content) => setNewBlog({ ...newBlog, description: content })}
+                    modules={quillModules}
+                    formats={quillFormats}
+                    className="bg-[#252525] rounded-xl"
+                    placeholder="Enter blog description... Write a detailed description for your blog post."
+                  />
+                </div>
                 <div className="text-right text-xs text-gray-500 mt-2">
-                  {newBlog.description.length}/1500 characters
+                  {countWords(newBlog.description)}/1500 words
                 </div>
               </div>
 
@@ -729,30 +772,6 @@ export default function BlogsPage() {
                   <button onClick={() => newFileInputRef.current?.click()} className="px-6 py-4 rounded-xl bg-[#252525] border border-white/[0.06] text-gray-400 hover:text-white hover:border-emerald-500/30 transition-colors font-medium">
                     Browse
                   </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Author Name</label>
-                  <input
-                    type="text"
-                    value={newBlog.authorName}
-                    onChange={(e) => setNewBlog({ ...newBlog, authorName: e.target.value })}
-                    className="w-full bg-[#252525] border border-white/[0.06] rounded-xl px-5 py-4 text-base text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
-                    placeholder="Name of the blogger"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Company</label>
-                  <input
-                    type="text"
-                    value={newBlog.authorCompany}
-                    onChange={(e) => setNewBlog({ ...newBlog, authorCompany: e.target.value })}
-                    className="w-full bg-[#252525] border border-white/[0.06] rounded-xl px-5 py-4 text-base text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
-                    placeholder="Company of the blogger"
-                  />
                 </div>
               </div>
 

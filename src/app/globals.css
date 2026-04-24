@@ -1,3 +1,5 @@
+@import 'react-quill/dist/quill.snow.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -31,4 +33,80 @@ html {
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* React Quill Dark Theme Styles */
+.quill-dark-theme .ql-toolbar {
+  background-color: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px 12px 0 0;
+}
+
+.quill-dark-theme .ql-toolbar .ql-stroke {
+  stroke: #9ca3af;
+}
+
+.quill-dark-theme .ql-toolbar .ql-fill {
+  fill: #9ca3af;
+}
+
+.quill-dark-theme .ql-toolbar .ql-picker {
+  color: #9ca3af;
+}
+
+.quill-dark-theme .ql-toolbar .ql-picker-options {
+  background-color: #252525;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.quill-dark-theme .ql-toolbar .ql-picker-label:hover,
+.quill-dark-theme .ql-toolbar .ql-picker-label.ql-active,
+.quill-dark-theme .ql-toolbar .ql-picker-item:hover,
+.quill-dark-theme .ql-toolbar .ql-picker-item.ql-selected {
+  color: #10b981;
+}
+
+.quill-dark-theme .ql-toolbar button:hover .ql-stroke,
+.quill-dark-theme .ql-toolbar button.ql-active .ql-stroke {
+  stroke: #10b981;
+}
+
+.quill-dark-theme .ql-toolbar button:hover .ql-fill,
+.quill-dark-theme .ql-toolbar button.ql-active .ql-fill {
+  fill: #10b981;
+}
+
+.quill-dark-theme .ql-container {
+  background-color: #252525;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top: none !important;
+  border-radius: 0 0 12px 12px;
+  font-size: 14px;
+  min-height: 200px;
+}
+
+.quill-dark-theme .ql-editor {
+  color: #ffffff;
+  min-height: 200px;
+}
+
+.quill-dark-theme .ql-editor.ql-blank::before {
+  color: #6b7280;
+  font-style: normal;
+}
+
+.quill-dark-theme .ql-editor a {
+  color: #10b981;
+}
+
+.quill-dark-theme .ql-snow .ql-tooltip {
+  background-color: #252525;
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.quill-dark-theme .ql-snow .ql-tooltip input[type=text] {
+  background-color: #1a1a1a;
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
 }
